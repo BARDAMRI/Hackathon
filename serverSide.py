@@ -43,15 +43,18 @@ def get_answer(sock:socket,name1,name2,answer,done,has_winner):
 
 send_stop=False
 #check in lab the broadcast ip
-BroadCastIp='127.0.0.255'
+BroadCastIp='255.255.255.255'
 HOST='127.0.0.1'
 port=13117
 # Create a UDP socket
 UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 # Bind the socket to the port
-Broadcast_address = (BroadCastIp, port)
-address=(HOST, port)
-UDPSocket.bind(Broadcast_address)
+Broadcast_address = ('<broadcast>', port)
+address=("", port)
+
+UDPSocket.bind(address)
+UDPSocket.setsockopt
 print("Server started, listening on IP address 172.1.0.4")
 magic_cookie = 0xabcddcba
 msg_type= 0x2

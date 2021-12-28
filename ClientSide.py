@@ -1,102 +1,51 @@
-from os import name
 import socket
-import sys
 import struct as str
-import time as t
-import _thread
-import threading
-import random
+import selectors
+import sys
 
-lock = threading.Lock()
-
-
-def send_invites(stop, UDPSocket, data_to_send, Broadcast_address):
-    while (not stop):
-        # wait for a second
-        t.sleep(1)
-        # send the broadcast
-        UDPSocket.sendto(data_to_send, Broadcast_address)
+sel = selectors.DefaultSelector()
+conn = None
 
 
-def get_answer(sock, name1, name2, answer, done, has_winner):
-    with sock:
-        sock.timeout(10)
-        try:
-            ans = sock.recv(1024)
-            message = "Game over!\nThe correct answer was " + answer + "!\n\nCongratulations to the winner: "
-            with lock:
-                if (not done):
-                    done = True
-                    if (ans == answer):
-                        message = message + name1
-                        sock.sendall(str.pack("s", message))
-                        has_winner = True
-                    else:
-                        message = message + name2
-                        sock.sendall(str.pack("s", message))
-                elif not has_winner:
-                    message = message + name1
-                    sock.sendall(str.pack("s", message))
-                elif has_winner:
-                    message = message + name2
-                    sock.sendall(str.pack("s", message))
-        except sock.timeout as e:
-            sock.sendall(str.pack("s", "Oops, the time to answer has left. \nBe faster next time!"))
+
+
+
+def read(conn, msk):
+    data = conn.recv(1024)
+    if data:
+        print (str.unpack("s", data)[0])
+    else:
+        conn.close()
+    sel.register(sys.stdin, selectors.EVENT_READ, answer)
+
+def answer (std_in,msk):
+    ans = std_in.readline(1)
+    conn.sendall(str.pack("s",ans))
+    sel.register(conn, selectors.EVENT_READ, read)
+
+
+
+name = "Avengers\n"
+port = 13117
+BroadCastIp = '127.0.0.100'
+address = (BroadCastIp, port)
+print("Client started, listening for offer requests...")
+UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+UDPSocket.bind(address)
 
 
 if __name__ == '__main__':
+    while True:
+        with  UDPSocket.recv(1024) as msg, address:
+            magic_cockie, tp, server_port = str.unpack("!Ihh", msg)
+            conn = tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_socket.connect((address[0], server_port))
+            tcp_socket.sendall(str.pack("s", name))
+            sel.register(tcp_socket, selectors.EVENT_READ, read)
+            sel.register(sys.stdin, selectors.EVENT_READ, answer)
 
-    send_stop = False
-    # check in lab the broadcast ip
-    BroadCastIp = '127.0.0.255'
-    HOST = '127.0.0.1'
-    port = 13117
-    # Create a UDP socket
-    UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # Bind the socket to the port
-    Broadcast_address = (BroadCastIp, port)
-    address = (HOST, port)
-    UDPSocket.bind(Broadcast_address)
-    print("Server started, listening on IP address 172.1.0.4")
-    magic_cookie = 0xabcddcba
-    msg_type = 0x2
-    server_port = 13117
-    data_to_send = str.pack("!Ihh", magic_cookie, msg_type, server_port)
-    q = ["2+2", "3*3", "4-1", "6+2", "1+5", "8-4", "9-4"]
-    a = [4, 9, 3, 8, 6, 4, 5]
-    TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    TCPsock.bind(address)
-    TCPsock.listen(2)
-    with TCPsock:
-        while True:
-
-            _thread.start_new_thread(send_invites, (send_stop, UDPSocket, data_to_send, Broadcast_address))
-            conn1, addr1 = TCPsock.accept()
-            conn2, addr2 = TCPsock.accept()
-            send_stop = True
-            t.sleep(10)
-            name1 = str.unpack("s", conn1.recv(1024))
-            name2 = str.unpack("s", conn2.recv(1024))
-            if not name1:
-                conn1.close()
-                conn2.close()
-                continue
-            if not name2:
-                conn1.close()
-                conn2.close()
-                continue
-            name1 = name1[0, name1.index('\n')]
-            name2 = name2[0, name2.index('\n')]
-            loc = random.randint(0, 6)
-            message = "Welcome to Quick Maths.\nPlayer 1: " + name1 + "\nPlayer2: " + name2 + "\nHow much is " + q[
-                loc] + "?\n"
-            conn1.sendall(str.pack("s", message))
-            conn2.sendall(str.pack("s", message))
-            done = False
-            _thread.start_new_thread(get_answer, (conn1, name1, a[loc], done))
-            _thread.start_new_thread(get_answer, (conn2, name2, a[loc], done))
-            # update on starting a new game
-            print("Game over, sending out offer requests...")
-
-
-
+        events = sel.select()
+        for key, msk in events:
+            call_back = key.data
+            call_back(key.fileobj, msk)
