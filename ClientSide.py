@@ -3,6 +3,7 @@ import struct as str
 import selectors
 import sys
 
+
 sel = selectors.DefaultSelector()
 conn = None
 
@@ -27,23 +28,32 @@ def answer (std_in,msk):
 
 name = "Avengers\n"
 port = 13117
-BroadCastIp = '127.0.0.100'
-address = (BroadCastIp, port)
+address = ("", port)
 print("Client started, listening for offer requests...")
 UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
 UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 UDPSocket.bind(address)
 
 
+
 if __name__ == '__main__':
     while True:
-        with  UDPSocket.recv(1024) as msg, address:
-            magic_cockie, tp, server_port = str.unpack("!Ihh", msg)
-            conn = tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            tcp_socket.connect((address[0], server_port))
-            tcp_socket.sendall(str.pack("s", name))
-            sel.register(tcp_socket, selectors.EVENT_READ, read)
-            sel.register(sys.stdin, selectors.EVENT_READ, answer)
+     
+        msg, address = UDPSocket.recvfrom(1024) 
+        
+        print(str.unpack("Ihh", msg))
+        magic_cockie, tp, server_port = str.unpack("Ihh", msg)
+        print(server_port)
+        conn = tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(address)
+        print("here connect1")
+        tcp_socket.bind((address[0],server_port))
+        print("here connect")
+        tcp_socket.sendall(str.pack("h", name.split()))
+        print("here")
+        sel.register(tcp_socket, selectors.EVENT_READ, read)
+        sel.register(sys.stdin, selectors.EVENT_READ, answer)
 
         events = sel.select()
         for key, msk in events:
