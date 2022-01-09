@@ -10,7 +10,6 @@ from scapy.all import *
 
 lock = threading.Lock()
 done = False
-has_winn = False
 stop_broadcast = False
 q = ["2+2", "3*3", "4-1", "6+2", "1+5", "8-4", "9-4"]
 a = [4, 9, 3, 8, 6, 4, 5]
@@ -26,38 +25,33 @@ def send_invites(UDPSocket, data_to_send, port):
         UDPSocket.sendto(data_to_send, Broadcast_address)
 
 
-def get_answer(sock: socket, name1, name2, answer):
-    global has_winn, done
+def get_answer(sock1: socket, sock2: socket, name1, name2, answer):
+    global  done
     message = "Game over!\nThe correct answer was " + str(answer) + "!\n\nCongratulations to the winner: "
-    sock.settimeout(10)
+    sock1.settimeout(10)
     try:
-        data = sock.recv(1)
+        data = sock1.recv(1)
         ans = (data).decode()
-        with lock:
-            if (not done):
-                done = True
-                if (ans == answer):
-                    message = str(message) + str(name1)
-                    sock.sendall(message.encode())
-                    has_winn = True
-                else:
-                    message = str(message) + str(name2)
-                    sock.sendall(message.encode())
-            elif not has_winn:
-                message = str(message) + str(name1)
-                sock.sendall(message.encode())
-                has_winn = True
-            elif has_winn:
-                message = str(message) + str(name2)
-                sock.sendall(message.encode())
-        sock.close()
+        with sock1:
+            with lock:
+                if (not done):
+                    done = True
+                    if (ans == answer):
+                        message = str(message) + str(name1)
+                        sock1.sendall(message.encode())
+                        sock2.sendall(message.encode())
+                    else:
+                        message = str(message) + str(name2)
+                        sock1.sendall(message.encode())
+                        sock2.sendall(message.encode())
+            sock2.close()
+            sock1.close()
     except socket.timeout:
-        if not done and not has_winn:
-            sock.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
-        else:
-            message = str(message) + str(name2)
-            sock.sendall(message.encode())
-        sock.close()
+        if not done:
+            sock1.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
+            sock2.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
+        sock2.close()
+        sock1.close()
 
 
 def SetGameSocket():
@@ -98,7 +92,7 @@ while True:
     stop_broadcast = True
     broadcaster.join()
     print("Two participants connected. starting game in 10 seconds")
-    t.sleep(3)
+    t.sleep(10)
     name1 = conn1.recv(1024).decode()
     name2 = conn2.recv(1024).decode()
     if not name1:
@@ -118,8 +112,8 @@ while True:
         name2) + "\nHow much is " + str(ques) + "?\n"
     conn1.sendall(message.encode())
     conn2.sendall(message.encode())
-    receiver1 = threading.Thread(target=get_answer, args=(conn1, name1, name2, ans))
-    receiver2 = threading.Thread(target=get_answer, args=(conn2, name2, name1, ans))
+    receiver1 = threading.Thread(target=get_answer, args=(conn1,conn2, name1, name2, ans))
+    receiver2 = threading.Thread(target=get_answer, args=(conn2,conn1, name2, name1, ans))
     receiver1.start()
     receiver2.start()
     receiver1.join()
@@ -127,7 +121,5 @@ while True:
     conn1.close()
     conn2.close()
     TCPsock.close()
-    t.wait(10)
     # update on starting a new game
-    print("Game over, sending out offer requests...\n\n")
-
+    print("Game over, sending out offer requests...")

@@ -54,7 +54,7 @@ def getOffers():
 
 while True:
     game_over=False
-    print("\n\nClient started, listening for offer requests...")
+    print("Client started, listening for offer requests...")
     msg,address= getOffers()
     magic_cockie, tp, tcp_port = str.unpack('>IbH',msg)
     if magic_cockie == 0Xabcddcba and tp == 0X2:
