@@ -1,4 +1,4 @@
-from os import name
+from os import name, wait
 from shutil import Error
 import socket
 import sys
@@ -16,6 +16,7 @@ a = [4, 9, 3, 8, 6, 4, 5]
 
 
 def send_invites(UDPSocket, data_to_send, port):
+    print("Server started, listening on IP address ", HOST)
     global stop_broadcast
     Broadcast_address = ('<broadcast>', port)
     while (not stop_broadcast):
@@ -26,13 +27,14 @@ def send_invites(UDPSocket, data_to_send, port):
 
 
 def get_answer(sock1: socket, sock2: socket, name1, name2, answer):
-    global  done
+    global done
     message = "Game over!\nThe correct answer was " + str(answer) + "!\n\nCongratulations to the winner: "
     sock1.settimeout(10)
-    try:
-        data = sock1.recv(1)
-        ans = (data).decode()
-        with sock1:
+    with sock1:
+        try:
+            data = sock1.recv(1)
+            ans = (data).decode()
+
             with lock:
                 if (not done):
                     done = True
@@ -44,31 +46,33 @@ def get_answer(sock1: socket, sock2: socket, name1, name2, answer):
                         message = str(message) + str(name2)
                         sock1.sendall(message.encode())
                         sock2.sendall(message.encode())
-            sock2.close()
-            sock1.close()
-    except socket.timeout:
-        if not done:
-            sock1.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
-            sock2.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
-        sock2.close()
-        sock1.close()
+                    sock2.close()
+                    sock1.close()
+        except socket.timeout:
+            if not done:
+                sock1.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
+                sock2.sendall(("Game over!\nThe correct answer was " + str(answer) + " .It was a draw.").encode())
+                sock2.close()
+                sock1.close()
+        except:
+            print()
 
 
-def SetGameSocket():
+def SetGameSocket(ip):
     TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    TCPsock.bind(('', 2098))
+    TCPsock.bind((ip, 2098))
     TCPsock.listen(2)
     return TCPsock
 
 
-def setBroadcastSock():
+def setBroadcastSock(ip):
     # Create a UDP socket
     UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Bind the socket to the port
-    UDPSocket.bind(('', 13117))
+    UDPSocket.bind((ip, 13117))
     return UDPSocket
 
 
@@ -77,13 +81,11 @@ def createMessage():
 
 
 # check in lab the broadcast ip
-HOST = get_if_addr("eth2")
-print("Server started, listening on IP address ", HOST)
+HOST = get_if_addr("eth1")
 msg = createMessage()
-UDPSock = setBroadcastSock()
-
+UDPSock = setBroadcastSock(HOST)
 while True:
-    TCPsock = SetGameSocket()
+    TCPsock = SetGameSocket(HOST)
     stop_broadcast = False
     broadcaster = threading.Thread(target=send_invites, args=(UDPSock, msg, 13117))
     broadcaster.start()
@@ -105,6 +107,7 @@ while True:
         continue
     name1 = name1[:-1]
     name2 = name2[:-1]
+    print("received names of two components. ", name1, " ", name2)
     loc = random.randint(0, 6)
     ques = q[loc]
     ans = a[loc]
@@ -112,8 +115,8 @@ while True:
         name2) + "\nHow much is " + str(ques) + "?\n"
     conn1.sendall(message.encode())
     conn2.sendall(message.encode())
-    receiver1 = threading.Thread(target=get_answer, args=(conn1,conn2, name1, name2, ans))
-    receiver2 = threading.Thread(target=get_answer, args=(conn2,conn1, name2, name1, ans))
+    receiver1 = threading.Thread(target=get_answer, args=(conn1, conn2, name1, name2, ans))
+    receiver2 = threading.Thread(target=get_answer, args=(conn2, conn1, name2, name1, ans))
     receiver1.start()
     receiver2.start()
     receiver1.join()
@@ -121,5 +124,6 @@ while True:
     conn1.close()
     conn2.close()
     TCPsock.close()
+    t.sleep(10)
     # update on starting a new game
     print("Game over, sending out offer requests...")
