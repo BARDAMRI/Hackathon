@@ -19,7 +19,7 @@ def read(conn):
 
 
 def answer(conn):
-    ans = sys.stdin.read(1)
+    ans = sys.stdin.readline()
     conn.sendall(ans.encode())
 
 name = "Avengers\n"
@@ -35,7 +35,7 @@ def setUdpConn():
     return UDPSocket
 
 def setTcpConn(ip,port):
-    print("Received offer from server at" , ip , " , attempting to connect...")
+    print("\n\nReceived offer from server at" , ip , " , attempting to connect...\n")
     tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_socket.connect((ip, port))
     tcp_socket.sendall(name.encode())
@@ -54,7 +54,8 @@ def getOffers():
 
 while True:
     game_over=False
-    print("Client started, listening for offer requests...")
+    answers=0
+    print("\n\nClient started, listening for offer requests...\n")
     msg,address= getOffers()
     magic_cockie, tp, tcp_port = str.unpack('>IbH',msg)
     if magic_cockie == 0Xabcddcba and tp == 0X2:
@@ -66,5 +67,5 @@ while True:
                         read(TCPConn)
                     else:
                         answer(TCPConn)
-
+        print("\n\nServer disconnected...\n")
 
