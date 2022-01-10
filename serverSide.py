@@ -16,6 +16,22 @@ q = ["2+2", "3*3", "4-1", "6+2", "1+5", "8-4", "9-4"]
 a = [4, 9, 3, 8, 6, 4, 5]
 
 
+def waitSec(conn1, conn2, ans):
+    global ann
+    passed = 0
+    while passed < 9:
+        if not ann:
+            passed = passed + 1
+            t.sleep(1)
+        else:
+            break
+    if not ann:
+        with conn1, conn2:
+            ann = True
+            conn1.sendall(ans.encode())
+            conn2.sendall(ans.encode())
+
+
 def send_invites(UDPSocket, data_to_send, port):
     print("\n\nServer started, listening on IP address ", HOST, "\n")
     global stop_broadcast
@@ -31,26 +47,23 @@ def get_answer(sock1: socket, sock2: socket, name1, name2, answer, mess):
     global done, ann
     message = "\n\nGame over!\nThe correct answer was " + str(answer) + "!\n\nCongratulations to the winner: "
     sock1.sendall(mess.encode())
-    with sock1, conn2:
+    with sock1, sock2:
         data = sock1.recv(1)
         ans = (data).decode()
         with lock:
-            if (not done):
-                done = True
-                if (ans == answer):
-                    message = str(message) + str(name1) + str("\n")
-                    sock1.sendall(message.encode())
-                    sock2.sendall(message.encode())
-                    ann = True
-                    sock1.close()
-                    sock2.close()
-                else:
-                    message = str(message) + str(name2) + str("\n")
-                    sock1.sendall(message.encode())
-                    sock2.sendall(message.encode())
-                    ann = True
-                    sock1.close()
-                    sock2.close()
+            if not ann:
+                if (not done):
+                    done = True
+                    if (ans == answer):
+                        message = str(message) + str(name1) + str("\n")
+                        sock1.sendall(message.encode())
+                        sock2.sendall(message.encode())
+                        ann = True
+                    else:
+                        message = str(message) + str(name2) + str("\n")
+                        sock1.sendall(message.encode())
+                        sock2.sendall(message.encode())
+                        ann = True
 
 
 def SetGameSocket(ip):
@@ -82,6 +95,7 @@ UDPSock = setBroadcastSock(HOST)
 TCPsock = SetGameSocket(HOST)
 while True:
     done = False
+    ann = False
     stop_broadcast = False
     broadcaster = threading.Thread(target=send_invites, args=(UDPSock, msg, 13117))
     broadcaster.start()
@@ -110,17 +124,15 @@ while True:
         name2) + "\nHow much is " + str(ques) + "?\n"
     receiver1 = threading.Thread(target=get_answer, args=(conn1, conn2, name1, name2, ans, message))
     receiver2 = threading.Thread(target=get_answer, args=(conn2, conn1, name2, name1, ans, message))
+    drawMess = ("\n\nGame over!\nThe correct answer was " + str(ans) + " .It was a draw.\n\n")
+    waiter = threading.Thread(target=waitSec, args=(conn1, conn2, drawMess))
     receiver1.start()
     receiver2.start()
-    t.sleep(10)
-    if not ann:
-        print("\n\n time left")
-        conn1.sendall(("\n\nGame over!\nThe correct answer was " + str(ans) + " .It was a draw.\n\n").encode())
-        conn2.sendall(("\n\nGame over!\nThe correct answer was " + str(ans) + " .It was a draw.\n\n").encode())
-        conn1.close()
-        conn2.close()
+    waiter.start()
     receiver1.join()
     receiver2.join()
-
+    waiter.join()
+    conn1.close()
+    conn2.close()
     # update on starting a new game
     print("\n\nGame over, sending out offer requests...\n")
