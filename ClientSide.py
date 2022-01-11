@@ -24,7 +24,7 @@ def answer(conn):
 
 name = "Avengers\n"
 # ip_type = input("Choose eth1 or eth2 =>\n")
-HOST= get_if_addr("eth2")
+HOST= get_if_addr("eth1")
 
 def setUdpConn():
     UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
